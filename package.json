@@ -1,5 +1,5 @@
 {
-  "name": "redux-actions",
+  "name": "xm-redux-actions",
   "version": "2.0.2",
   "description": "Flux Standard Action utlities for Redux",
   "main": "lib/index.js",

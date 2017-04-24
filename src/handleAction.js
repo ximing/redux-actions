@@ -6,6 +6,20 @@ import isUndefined from 'lodash/isUndefined';
 import includes from 'lodash/includes';
 import invariant from 'invariant';
 import { ACTION_TYPE_DELIMITER } from './combineActions';
+import { KEY } from './constants';
+
+
+function safeMap(state, fn, action) {
+  switch (typeof fn) {
+    case 'function': {
+      const result = fn(state, action);
+      return result;
+    }
+    default:
+      return state;
+  }
+}
+
 
 export default function handleAction(type, reducer = identity, defaultState) {
   const types = type.toString().split(ACTION_TYPE_DELIMITER);
@@ -18,16 +32,23 @@ export default function handleAction(type, reducer = identity, defaultState) {
     'Expected reducer to be a function or object with next and throw reducers'
   );
 
-  const [nextReducer, throwReducer] = isFunction(reducer)
-    ? [reducer, reducer]
-    : [reducer.next, reducer.throw].map(aReducer => (isNil(aReducer) ? identity : aReducer));
+  const [startReducer, nextReducer, throwReducer, finishReducer] = isFunction(reducer)
+    ? [identity, reducer, reducer, identity]
+    : [reducer.start, reducer.next,
+      reducer.throw, reducer.finish].map(aReducer => (isNil(aReducer) ? identity : aReducer));
 
   return (state = defaultState, action) => {
-    const { type: actionType } = action;
+    const { type: actionType, meta } = action;
+    const lifecycle = meta ? meta[KEY.LIFECYCLE] : null;
     if (!actionType || !includes(types, actionType.toString())) {
       return state;
     }
-
-    return (action.error === true ? throwReducer : nextReducer)(state, action);
+    if (lifecycle === 'start') {
+      state = safeMap(state, startReducer, action);
+    } else {
+      state = (action.error === true ? throwReducer : nextReducer)(state, action);
+      state = safeMap(state, finishReducer, action);
+    }
+    return state;
   };
 }
